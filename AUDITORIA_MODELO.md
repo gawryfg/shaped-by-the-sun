@@ -1,6 +1,8 @@
 # Auditoria do modelo térmico
 
-Data: 25 de outubro de 2026.
+Data da auditoria histórica: 25 de outubro de 2026.
+
+Atualização em 28 de outubro de 2026: a opção Shiny legado e seus coeficientes alternativos foram removidos da página. A versão atual mantém a convecção de Mitchell com constantes do artigo e duas opções de ondas longas. As comparações abaixo documentam a auditoria anterior; a validação atual usa 81 referências das equações do suplemento, além dos testes das duas formulações radiativas.
 
 **Conclusão: o app compartilha a estrutura de balanço térmico do artigo, mas não o reproduz exatamente, mesmo escolhendo Mitchell e desconsiderando os coeficientes extras.** Há diferenças nos parâmetros da convecção e nas condições iniciais. A área projetada diverge literalmente da equação impressa no suplemento, mas a fórmula do código é a geometricamente consistente.
 
@@ -79,7 +81,7 @@ Para H = 8 mm, D = 4 mm, I = 1000 W/m², Ta = 30 °C, p = 0,85, εs = 0,95 e εa
 
 A diferença não é apenas estética: os parâmetros da convecção alteram a temperatura prevista. Sua magnitude depende do tamanho e do vento; esses exemplos não são limites gerais.
 
-O estado inicial efetivo de `app.R` (vento 0,2 m/s, controle 90°, corpo horizontal) resulta em **37,8472 °C**. A página nova reproduz esse resultado no preset “Shiny legado”. Já seu preset “Artigo” começa na postura vertical, com vento de 0,1 m/s, e resulta em **34,0052 °C** para a mesma geometria. Comparar esses dois presets diretamente mistura mudanças de postura, vento e convecção; a tabela acima isola a diferença da formulação de h.
+O estado inicial efetivo de `app.R` (vento 0,2 m/s, controle 90°, corpo horizontal) resulta em **37,8472 °C**. A versão anterior da página reproduzia esse resultado no preset “Shiny legado”, agora removido. A configuração atual do artigo começa na postura vertical, com vento de 0,1 m/s, e resulta em **34,0052 °C** para a mesma geometria. Comparar esses dois presets diretamente mistura mudanças de postura, vento e convecção; a tabela acima isola a diferença da formulação de h.
 
 Como conferência adicional da escala dos resultados, para volume de 2500 mm³, θ = 90° e os parâmetros publicados, a nova implementação dá 33,23 °C em D/H = 0,25 e 39,57 °C em D/H = 1,00. Esses valores são compatíveis com os valores arredondados de 33 °C e 40 °C apresentados no texto do artigo para corpos grandes. Isso não substitui uma reprodução integral das figuras.
 

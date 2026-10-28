@@ -47,15 +47,27 @@ Os controles estão agrupados em Ambiente e Corpo. Gráficos, balanço detalhado
 
 O ângulo θ é a inclinação do eixo acima da horizontal: **0° deitado; 90° em pé**, com radiação solar vertical. No app.R antigo, o valor enviado ao cálculo equivale a `90 - controle_do_app`. Assim, o controle original em 90 corresponde a θ = 0 nesta página.
 
-## Dois modos
+## Convecção do artigo
 
 **Artigo:** usa Mitchell com Cₗ = 0,52, n = 0,50, k = 0,0256 W/(m·K), ν = 15,2 × 10⁻⁶ m²/s, conforme a equação (2) do suplemento. O vento efetivo é no mínimo 0,1 m/s. Valores iniciais de ambiente e propriedades seguem o suplemento; a geometria inicial (8 × 4 mm) é um exemplo herdado do app. A postura inicial é vertical, de exposição mínima para essa geometria. Alterar propriedades ou coeficientes marca o cenário como exploração.
 
-**Shiny legado:** reproduz as funções de app.R, incluindo Mitchell com Cₗ = 0,34, n = 0,60, k = 0,0257 e ν = 15,3 × 10⁻⁶. Mantém Gates, Lactin e King. O preset inicial tem vento de 0,2 m/s e postura horizontal, como o estado físico inicial do app.R.
 
 A equação (5) impressa no suplemento contém `2πr` no segundo termo de uma área. A implementação usa **πr²**, a área projetada de uma base circular, como os arquivos R locais. Essa correção dimensional está explícita na página. O modo Artigo reproduz as equações térmicas e os parâmetros publicados com essa correção geométrica; não se apresenta como reprodução literal do erro tipográfico.
 
-O infravermelho mantém a forma publicada, `A εₐ εₛ σ (Tₐ⁴ − Tₛ⁴)`. Não foi substituído por outra formulação radiativa.
+A opção padrão de ondas longas mantém a forma publicada, `A εₐ εₛ σ (Tₐ⁴ − Tₛ⁴)`.
+
+### Variação de ondas longas: Céu + entorno
+
+Em **Modelo & propriedades → Trocas de ondas longas**, selecione **Céu + entorno · áreas iguais**. Essa variação mantém a convecção de Mitchell do artigo e usa:
+
+- Emitida: `A σ εₛ Tₛ⁴`.
+- Recebida do céu: `(A/2) σ εₛ εsky Tₐ⁴`.
+- Recebida do entorno: `(A/2) σ εₛ εamb Tₐ⁴`, com `εamb = 0,95` fixo.
+- Saldo infravermelho: recebida do céu + recebida do entorno − emitida.
+
+`A` é a superfície corporal total e todas as temperaturas são convertidas para kelvin. O controle de emissividade do ar passa a representar `εsky` (inicialmente 0,88); a divisão das áreas não muda com a postura. **σ está incluído nos dois termos recebidos para manter a unidade em watts.** A variação é uma extensão do modelo, não a equação original do artigo.
+
+O equilíbrio pode ficar abaixo da temperatura do ar, com entrada de calor por convecção. O solucionador considera esse caso e a interface indica os sinais dos fluxos. O balanço de energia mostra a emissão e as duas parcelas recebidas; gráficos, comparação fixada, links de cenário e CSV incluem a formulação selecionada. Links sem `longwaveModel` continuam usando a equação original. Links que selecionavam uma configuração de convecção removida exibem uma mensagem; use Restaurar para aplicar a configuração do artigo.
 
 ## Validação
 
@@ -63,15 +75,15 @@ O infravermelho mantém a forma publicada, `A εₐ εₛ σ (Tₐ⁴ − Tₛ�
 npm test
 ```
 
-Os testes usam `node:test`, sem dependências. São 405 casos de referência: 324 calculados pelas próprias funções de `app.R` (quatro coeficientes) e 81 por uma implementação R independente das equações do suplemento. A tolerância é 0,00007 °C contra `uniroot` do app e 0,00000001 °C contra a referência do artigo. Também são verificados limites geométricos, fechamento energético, monotonicidade do balanço, conservação de volume e entradas inválidas.
+Os testes usam `node:test`, sem dependências. São 81 casos de referência calculados por uma implementação R independente das equações do suplemento, com tolerância de 0,00000001 °C. Também são verificados limites geométricos, fechamento energético, monotonicidade do balanço, conservação de volume e entradas inválidas. A variação Céu + entorno tem verificações independentes das parcelas radiativas, da solução analítica sem convecção, do resfriamento abaixo do ar e da conservação de energia nos gráficos.
 
-Para regenerar a referência a partir da pasta superior, com R e o `app.R` original disponíveis nessa pasta (o CSV já está incluído e os testes funcionam sem R):
+Para regenerar a referência a partir da pasta superior, com R disponível (o CSV já está incluído e os testes funcionam sem R):
 
 ```sh
 Rscript github-pages/tests/reference.R
 ```
 
-O script extrai apenas funções de `app.R`, sem carregar Shiny. A nova página usa bisseção, com delimitação adaptativa da raiz; não exige que o equilíbrio caiba no intervalo fixo de −50 a 150 °C do app.
+O script calcula as referências diretamente pelas equações do suplemento, sem carregar o aplicativo original. A nova página usa bisseção, com delimitação adaptativa da raiz; não exige que o equilíbrio caiba no intervalo fixo de −50 a 150 °C do app.
 
 Estrutura: `model.js` contém a física; `app.js`, controles e gráficos SVG; `style.css`, layout responsivo; `tests/`, validação numérica. `AUDITORIA_MODELO.md` detalha a comparação com o artigo.
 

@@ -1,9 +1,11 @@
-import {PAPER,LEGACY,solve,geometry,angleSweep,shapeMap,shapeAtVolume} from './model.js';
+import {PAPER,AMBIENT_EMISSIVITY,solve,geometry,angleSweep,shapeMap,shapeAtVolume} from './model.js';
 const $=id=>document.getElementById(id);
 const numeric=['height','diameter','angle','radiation','wind','air','absorption','emissivity','airEmissivity','cl','exponent'];
-const fields=['mode','hType',...numeric];
+const fields=['longwaveModel',...numeric];
 const dimensions=['height','diameter'];
 const fmt=(n,d=1)=>n.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const signed=(n,d=2)=>`${n<0?'−':'+'}${fmt(Math.abs(n),d)}`;
+const longwaveName=p=>p.longwaveModel==='sky-environment'?'Céu + entorno':'Artigo (ondas longas)';
 let state={...PAPER}, pinned=null, metric='temperature', sweep=[], map=[], result=null;
 const units={angle:'°',radiation:' W/m²',wind:' m/s',air:' °C',absorption:'',emissivity:'',airEmissivity:''};
 const precision={angle:0,radiation:0,wind:1,air:0,absorption:2,emissivity:2,airEmissivity:2};
@@ -13,12 +15,11 @@ function syncInputs(){for(const k of fields)if(dimensions.includes(k))syncDimens
 function readInput(key){const value=$(key).value;state[key]=numeric.includes(key)?(value===''?NaN:Number(value)):value;}
 function controlLabels(){
   for(const [key,unit] of Object.entries(units))$(key+'-value').textContent=fmt(state[key],precision[key])+unit;
-  const paper=state.mode==='paper';
-  $('hType').disabled=paper;
-  $('cl').disabled=$('exponent').disabled=state.hType!=='Mitchell';
-  $('mode-note').textContent=paper?'Coeficientes do suplemento. Vento mínimo: 0,1 m/s.':'Coeficientes do Shiny original. Ângulo medido acima da horizontal.';
-  const standard=paper&&state.cl===.52&&state.exponent===.5&&state.absorption===.85&&state.emissivity===.95&&state.airEmissivity===.88;
-  $('model-badge').textContent=paper?(standard?'Artigo · referência':'Artigo · exploração'):'Shiny legado · '+state.hType;
+  const split=state.longwaveModel==='sky-environment';
+  $('air-emissivity-label').textContent=split?'Emissividade da atmosfera εsky':'Emissividade do ar εₐ';
+  $('longwave-note').textContent=split?`Metade da superfície recebe radiação do céu e metade do entorno. Emissividade do entorno fixa em ${fmt(AMBIENT_EMISSIVITY,2)}; ambos usam a temperatura do ar.`:'Equação do artigo: a emissividade do ar multiplica a radiação recebida e a emitida.';
+  const standard=state.cl===.52&&state.exponent===.5&&state.absorption===.85&&state.emissivity===.95&&state.airEmissivity===.88;
+  $('model-badge').textContent=split?'Céu + entorno':standard?'Artigo · referência':'Artigo · exploração';
   document.querySelectorAll('[data-radiation]').forEach(b=>{const active=Number(b.dataset.radiation)===state.radiation;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active);});
   $('pin').textContent=pinned?'Remover comparação ×':'Fixar comparação ＋';
 }
@@ -30,16 +31,19 @@ function render(){
     $('pin').disabled=$('export').disabled=$('share').disabled=false;
     const r=result;
     $('temperature').textContent=fmt(r.temperature,1);
-    $('excess').innerHTML=`<strong>+${fmt(r.excess,1)} °C</strong> em relação ao ar (${fmt(state.air,0)} °C)`;
+    $('excess').innerHTML=`<strong>${signed(r.excess,1)} °C</strong> em relação ao ar (${fmt(state.air,0)} °C)`;
     $('projected').textContent=fmt(r.projected*1e6,2)+' mm²';
     $('h-value').textContent=fmt(r.h,1)+' W/(m²·K)';
     $('roundness').value=r.roundness; $('roundness-value').textContent=fmt(r.roundness,2);
     $('geometry-note').textContent=`Volume ${fmt(r.volume*1e9,2)} mm³ · D/H ${fmt(r.roundness,2)}`;
     const colors=['var(--solar)','var(--convection)','var(--infrared)'];
-    const values=[r.solar,-r.convection,-r.longwave], max=Math.max(...values,1e-15);
-    $('flux-grid').innerHTML=['Sol absorvido ↘','Convecção ↗','Infravermelho ↗'].map((name,i)=>`<div class="flux-item"><div><span>${name}</span><strong>${fmt(values[i]*1000,2)}</strong></div><div class="flux-track"><span style="width:${100*values[i]/max}%;background:${colors[i]}"></span></div></div>`).join('');
+    const values=[r.solar,r.convection,r.longwave], max=Math.max(...values.map(Math.abs),1e-15);
+    const names=['Sol absorvido','Convecção','Infravermelho líquido'];
+    $('flux-grid').innerHTML=names.map((name,i)=>`<div class="flux-item"><div><span>${name} ${values[i]>=0?'↘':'↗'}</span><strong>${signed(values[i]*1000)}</strong></div><div class="flux-track"><span style="width:${100*Math.abs(values[i])/max}%;background:${colors[i]}"></span></div></div>`).join('');
+    $('longwave-breakdown').hidden=state.longwaveModel!=='sky-environment';
+    $('longwave-breakdown').textContent=state.longwaveModel==='sky-environment'?`Ondas longas · emitida: ${fmt(r.longwaveEmitted*1000,2)} mW; recebida do céu: ${fmt(r.longwaveSkyReceived*1000,2)} mW; recebida do entorno: ${fmt(r.longwaveAmbientReceived*1000,2)} mW. Líquido = recebida − emitida.`:'';
     $('pinned-summary').hidden=!pinned;$('pinned-legend').hidden=!pinned;
-    if(pinned){const pr=solve(pinned),delta=r.temperature-pr.temperature;$('pinned-summary').textContent=`Fixado: ${fmt(pr.temperature,1)} °C · atual ${delta>=0?'+':''}${fmt(delta,1)} °C. Comparação mantém os parâmetros fixados; nas curvas, apenas θ varia.`;}
+    if(pinned){const pr=solve(pinned),delta=r.temperature-pr.temperature;$('pinned-summary').textContent=`${longwaveName(pinned)} fixado: ${fmt(pr.temperature,1)} °C · atual ${delta>=0?'+':''}${fmt(delta,1)} °C. Comparação mantém os parâmetros fixados; nas curvas, apenas θ varia.`;}
     drawScene();if($('analysis').open) updateAnalysis();
   }catch(e){
     result=null;$('error').textContent=e.message;$('error').hidden=false;document.body.classList.add('invalid');
@@ -85,20 +89,20 @@ function drawScene(){
     return `<path class="heat-wave" d="M${x} ${y}q-9-10 0-20t0-20t0-20" transform="rotate(${i*22-55} ${x} ${y})" style="animation-delay:${-i*.5}s"/>`;
   }).join('');
   $('solar-label').textContent=`+${fmt(r.solar*1000,2)} mW`;
-  $('conv-label').textContent=`−${fmt(-r.convection*1000,2)} mW`;
-  $('infra-label').textContent=`−${fmt(-r.longwave*1000,2)} mW`;
+  $('conv-label').textContent=`${signed(r.convection*1000)} mW`;
+  $('infra-label').textContent=`${signed(r.longwave*1000)} mW`;
   $('solar-detail').textContent=`${fmt(state.radiation,0)} W/m² incidentes`;
   $('wind-label').textContent=`Vento a ${fmt(effectiveWind,1)} m/s`;
   $('mobile-solar').textContent=`+${fmt(r.solar*1000,2)} mW`;
-  $('mobile-conv').textContent=`−${fmt(-r.convection*1000,2)} mW`;
-  $('mobile-infra').textContent=`−${fmt(-r.longwave*1000,2)} mW`;
+  $('mobile-conv').textContent=`${signed(r.convection*1000)} mW`;
+  $('mobile-infra').textContent=`${signed(r.longwave*1000)} mW`;
   const endX=cx+Math.cos(a)*212,endY=cy-Math.sin(a)*212;
   $('angle-indicator').innerHTML=`<path d="M${cx} ${cy}L${endX} ${endY}" stroke="var(--muted)" stroke-opacity=".23" stroke-dasharray="3 7"/><circle cx="${endX}" cy="${endY}" r="4" fill="var(--accent)"/><text x="${cx+Math.cos(a)*243+12}" y="${cy-Math.sin(a)*243+5}" class="angle-text">${fmt(state.angle,0)}°</text>`;
   const barLength=2*pixelsPerMm;
   $('scale-bar').innerHTML=`<path d="M800 620v6h${barLength}v-6" fill="none"/><text x="${800+barLength/2}" y="647" text-anchor="middle">2 mm</text>`;
   $('reference-zero').style.visibility=state.angle<8?'hidden':'visible';
   $('reference-ninety').style.visibility=state.angle>82?'hidden':'visible';
-  $('scene-desc').textContent=`Sol absorvido: ${fmt(r.solar*1000,2)} miliwatts; perda por convecção: ${fmt(-r.convection*1000,2)} miliwatts; perda infravermelha: ${fmt(-r.longwave*1000,2)} miliwatts. Arraste para girar ou use as setas do teclado. Animação ilustrativa dos fluxos no equilíbrio.`;
+  $('scene-desc').textContent=`Sol absorvido: ${fmt(r.solar*1000,2)} miliwatts; convecção (${r.convection>=0?'entrada':'saída'}): ${fmt(Math.abs(r.convection)*1000,2)} miliwatts; infravermelho líquido (${r.longwave>=0?'entrada':'saída'}): ${fmt(Math.abs(r.longwave)*1000,2)} miliwatts. Arraste para girar ou use as setas do teclado. Animação ilustrativa dos fluxos no equilíbrio.`;
   $('body-interaction').setAttribute('aria-valuenow',state.angle);
   $('body-interaction').setAttribute('aria-valuetext',`${fmt(state.angle,0)} graus acima da horizontal`);
   $('scene-title').textContent=`Cilindro suspenso a ${fmt(state.angle,0)} graus, temperatura de equilíbrio ${fmt(r.temperature,1)} graus Celsius. Comprimento ${fmt(state.height,1)} mm e diâmetro ${fmt(state.diameter,1)} mm.`;
@@ -145,10 +149,9 @@ function drawMap(){
   });
 }
 $('roundness').addEventListener('input',()=>{if(!result)return;state=shapeAtVolume(state,Number($('roundness').value));syncInputs();render();});
-for(const key of fields.filter(k=>k!=='mode'))$(key).addEventListener('input',()=>{readInput(key);render();});
+for(const key of fields)$(key).addEventListener('input',()=>{readInput(key);render();});
 for(const key of dimensions)$(key).addEventListener('blur',()=>syncDimension(key));
-$('reset').addEventListener('click',()=>{state={...(state.mode==='paper'?PAPER:LEGACY)};pinned=null;syncInputs();render();$('action-status').textContent='Referência restaurada.';});
-$('mode').addEventListener('change',()=>{state={...($('mode').value==='paper'?PAPER:LEGACY)};syncInputs();render();$('action-status').textContent='Preset carregado. A comparação fixada, se houver, foi mantida.';});
+$('reset').addEventListener('click',()=>{state={...PAPER,longwaveModel:state.longwaveModel};pinned=null;syncInputs();render();$('action-status').textContent='Referência restaurada.';});
 for(const b of document.querySelectorAll('[data-radiation]'))b.addEventListener('click',()=>{state.radiation=Number(b.dataset.radiation);syncInputs();render();});
 $('pin').addEventListener('click',()=>{pinned=pinned?null:{...state};render();$('action-status').textContent=pinned?'Cenário fixado. Altere os parâmetros para comparar.':'Comparação removida.';});
 function setMetric(next){metric=next;$('show-temp').setAttribute('aria-pressed',next==='temperature');$('show-area').setAttribute('aria-pressed',next==='projected');if(result)drawLine();}
@@ -156,8 +159,8 @@ $('show-temp').addEventListener('click',()=>setMetric('temperature'));$('show-ar
 $('share').addEventListener('click',async()=>{const url=new URL(location.href);url.hash='';url.search='';for(const key of fields)url.searchParams.set(key,state[key]);try{await navigator.clipboard.writeText(url.href);$('action-status').textContent='Link do cenário copiado.';}catch{history.replaceState(null,'',url);$('action-status').textContent='Cenário salvo na barra de endereço. Copie o endereço para compartilhar.';}});
 $('export').addEventListener('click',()=>{
   sweep=angleSweep(state);map=shapeMap(state);
-  const columns=['dataset','mode','h_type','height_mm','diameter_mm','angle_deg','radiation_W_m2','wind_input_m_s','wind_effective_m_s','air_C','absorption','emissivity','air_emissivity','cl','exponent','roundness_D_H','volume_mm3','projected_mm2','h_W_m2_K','temperature_C','solar_mW','convection_mW','longwave_mW','residual_W'];
-  const row=(name,p,r)=>[name,p.mode,p.hType,p.height,p.diameter,p.angle,p.radiation,p.wind,r.effectiveWind,p.air,p.absorption,p.emissivity,p.airEmissivity,p.cl,p.exponent,r.roundness,r.volume*1e9,r.projected*1e6,r.h,r.temperature,r.solar*1000,r.convection*1000,r.longwave*1000,r.net];
+  const columns=['dataset','mode','h_type','height_mm','diameter_mm','angle_deg','radiation_W_m2','wind_input_m_s','wind_effective_m_s','air_C','absorption','emissivity','air_emissivity','cl','exponent','roundness_D_H','volume_mm3','projected_mm2','h_W_m2_K','temperature_C','solar_mW','convection_mW','longwave_mW','residual_W','longwave_model','ambient_emissivity','longwave_emitted_mW','longwave_received_mW','longwave_sky_received_mW','longwave_ambient_received_mW'];
+  const row=(name,p,r)=>[name,p.mode,p.hType,p.height,p.diameter,p.angle,p.radiation,p.wind,r.effectiveWind,p.air,p.absorption,p.emissivity,p.airEmissivity,p.cl,p.exponent,r.roundness,r.volume*1e9,r.projected*1e6,r.h,r.temperature,r.solar*1000,r.convection*1000,r.longwave*1000,r.net,p.longwaveModel??'paper',p.longwaveModel==='sky-environment'?AMBIENT_EMISSIVITY:'',r.longwaveEmitted*1000,r.longwaveReceived*1000,r.longwaveSkyReceived===null?'':r.longwaveSkyReceived*1000,r.longwaveAmbientReceived===null?'':r.longwaveAmbientReceived*1000];
   const rows=[row('current',state,result),...sweep.map(r=>row('angle_sweep',{...state,angle:r.angle},r)),...map.flat().map(r=>row('shape_map',{...shapeAtVolume(state,r.roundness),angle:r.angle},r))];
   if(pinned)rows.push(row('pinned',pinned,solve(pinned)),...angleSweep(pinned).map(r=>row('pinned_sweep',{...pinned,angle:r.angle},r)));
   const blob=new Blob([columns.join(',')+'\r\n'+rows.map(r=>r.join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='shaped-by-the-sun.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('action-status').textContent='CSV exportado com os parâmetros e os resultados dos gráficos.';
@@ -211,5 +214,8 @@ rotationTarget.addEventListener('keydown',e=>{
 });
 
 const params=new URLSearchParams(location.search);
-if(fields.some(k=>params.has(k))){const initial=params.get('mode')==='legacy'?LEGACY:PAPER;state={...initial};for(const k of fields)if(params.has(k))state[k]=numeric.includes(k)?Number(params.get(k)):params.get(k);}
+for(const k of fields)if(params.has(k))state[k]=numeric.includes(k)?(params.get(k)===''?NaN:Number(params.get(k))):params.get(k);
+// Do not silently reinterpret links that selected a removed convection model.
+for(const key of ['mode','hType'])if(params.has(key))state[key]=params.get(key);
+if(state.mode!==PAPER.mode||state.hType!==PAPER.hType)$('action-status').textContent='Use Restaurar para aplicar a configuração do artigo a este cenário.';
 syncInputs();render();
