@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8fa">
+  <meta name="description" content="Modelo de equilíbrio térmico de um corpo cilíndrico suspenso, baseado em Ferreira-Sousa et al. (2021).">
+  <title>Shaped by the Sun · Modelo térmico</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#simulation">Ir para a simulação</a>
+<header class="topbar"><a class="brand" href="#"><span class="brand-icon">☼</span> Shaped by <em>the Sun.</em></a><nav><a href="#analysis" id="open-analysis">Gráficos ↓</a><a href="#method">Modelo ↗</a></nav></header>
+<main>
+  <h1 class="sr-only">Modelo de equilíbrio térmico</h1>
+  <p class="model-intro">Temperatura de equilíbrio de um corpo cilíndrico suspenso. O modelo equilibra o ganho de radiação solar com as perdas por convecção e infravermelho.</p>
+  <section id="simulation" class="workspace" aria-label="Simulação ilustrada de equilíbrio térmico">
+    <section class="scene-board" aria-label="Ilustração interativa do modelo">
+      <div class="scene-header"><span class="live-label"><i></i> EQUILÍBRIO TÉRMICO</span><button id="motion" type="button" class="motion-button" aria-pressed="false">Pausar animação Ⅱ</button></div>
+      <div class="scene-temperature"><p>Temperatura do corpo</p><div class="big-temperature"><span id="temperature">—</span><span>°C</span></div><p id="excess"></p><span id="model-badge" class="badge">Artigo</span></div>
+      <svg id="scene" viewBox="0 0 1000 700" aria-labelledby="scene-title scene-desc">
+        <title id="scene-title">Corpo cilíndrico suspenso sob o sol</title><desc id="scene-desc">Arraste o corpo para alterar a inclinação. As partículas ilustram os fluxos de calor no equilíbrio, sem simular o tempo de aquecimento.</desc>
+        <defs>
+          <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#c5e2f2"/><stop offset=".48" stop-color="#e9f1de"/><stop offset="1" stop-color="#c4d5a8"/></linearGradient>
+          <radialGradient id="canopy-light"><stop stop-color="#fff9d9" stop-opacity=".75"/><stop offset="1" stop-color="#fff9d9" stop-opacity="0"/></radialGradient>
+          <filter id="distant-foliage" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="12"/></filter>
+          <radialGradient id="sun-glow"><stop stop-color="#ffdc75" stop-opacity=".65"/><stop offset=".5" stop-color="#fff0b1" stop-opacity=".3"/><stop offset="1" stop-color="#fff0b1" stop-opacity="0"/></radialGradient>
+          <linearGradient id="sun-core" x2="0" y2="1"><stop stop-color="#fff1a8"/><stop offset="1" stop-color="#e5a326"/></linearGradient>
+          <linearGradient id="beam-fill" x2="0" y2="1"><stop stop-color="#e5a326" stop-opacity=".2"/><stop offset="1" stop-color="#ffda77" stop-opacity=".04"/></linearGradient>
+          <linearGradient id="cylinder-fill" x1="0" y1="0" x2="0" y2="1"><stop id="body-light" stop-color="#efc16f"/><stop id="body-mid" offset=".35" stop-color="#d99524"/><stop id="body-dark" offset="1" stop-color="#8b5f17"/></linearGradient>
+          <radialGradient id="body-glow"><stop id="glow-core" stop-color="#d99524" stop-opacity=".16"/><stop offset="1" stop-color="#d99524" stop-opacity="0"/></radialGradient>
+          <filter id="soft-shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#242a30" flood-opacity=".1"/></filter>
+          <marker id="flow-tip" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L8 5L1 9" fill="none" stroke="context-stroke" stroke-width="1.2"/></marker>
+        </defs>
+        <g aria-hidden="true">
+        <rect width="1000" height="700" fill="url(#sky)"/>
+        <ellipse cx="510" cy="345" rx="560" ry="360" fill="url(#canopy-light)"/>
+        <g filter="url(#distant-foliage)" opacity=".38" fill="#718e4f">
+          <ellipse cx="-65" cy="520" rx="145" ry="240" transform="rotate(-22 -65 520)"/>
+          <ellipse cx="1050" cy="535" rx="125" ry="230" transform="rotate(24 1050 535)"/>
+          <ellipse cx="135" cy="755" rx="230" ry="115"/><ellipse cx="905" cy="755" rx="220" ry="125"/>
+        </g>
+        <g fill="#527746" opacity=".24">
+          <path d="M0 700V597Q61 608 91 673Q33 677 0 645M0 620V505Q46 532 52 593Q17 588 0 566Z"/>
+          <path d="M1000 700V583Q939 607 912 677Q966 673 1000 639M1000 597V486Q953 521 949 574Q981 570 1000 548Z"/>
+        </g>
+        <circle cx="500" cy="82" r="195" fill="url(#sun-glow)"/>
+        <path id="sunlight-beam" d="M350 140H650L720 590H280Z" fill="url(#beam-fill)"/>
+        <g id="scene-sun" class="scene-sun"><circle cx="500" cy="82" r="37" fill="url(#sun-core)"/><circle cx="500" cy="82" r="48" fill="none" stroke="#aa7216" stroke-opacity=".5"/><g id="sun-spokes"></g></g>
+        <g id="solar-rays" class="solar-rays"></g>
+        <g id="web" fill="none" stroke="#355244" stroke-opacity=".32" stroke-width="1.1"><path d="M0 235Q280 338 500 410Q735 332 1000 235M0 630L500 410L1000 625M120 700L500 410L870 700M340 700L500 410L610 700"/><path d="M124 277Q170 450 223 533Q475 666 775 535Q840 450 876 276M238 320Q273 420 308 494Q496 573 693 494Q744 410 768 320M350 365Q355 431 397 456Q502 500 605 455Q649 410 650 365"/></g>
+        <g id="air-streams" class="air-streams"></g>
+        <circle cx="500" cy="410" r="205" fill="url(#body-glow)"/>
+        <path d="M500 198A212 212 0 0 1 712 410" fill="none" stroke="#354b43" stroke-opacity=".55" stroke-dasharray="2 7"/>
+        <path d="M704 410H722M500 190V207" stroke="#354b43" stroke-opacity=".65"/>
+        <text id="reference-zero" x="730" y="415" class="angle-reference">0°</text><text id="reference-ninety" x="516" y="199" class="angle-reference">90°</text>
+        <g id="heat-waves" class="heat-waves"></g><g id="body-group"></g>
+        <g class="solar-callout"><path d="M247 190H335L387 238" class="callout-line"/><text x="130" y="164" class="flow-label">RADIAÇÃO SOLAR</text><text x="130" y="190" class="flow-value" id="solar-label"></text><text x="130" y="214" class="flow-detail" id="solar-detail"></text></g>
+        <g class="convection-callout"><path d="M758 321H695L652 357" class="callout-line"/><text x="766" y="297" class="flow-label">CONVECÇÃO</text><text x="766" y="322" class="flow-value" id="conv-label"></text><text x="766" y="346" class="flow-detail" id="wind-label"></text></g>
+        <g class="infrared-callout"><path d="M245 547H321L365 507" class="callout-line"/><text x="130" y="547" class="flow-label">INFRAVERMELHO</text><text x="130" y="573" class="flow-value" id="infra-label"></text></g>
+        <g id="angle-indicator"></g>
+        </g>
+        <g id="body-interaction" role="slider" tabindex="0" aria-label="Inclinação do corpo" aria-valuemin="0" aria-valuemax="90" aria-valuenow="90"><circle cx="500" cy="410" r="230" fill="transparent"/><title>Arraste para girar; use as setas do teclado para ajustar a inclinação.</title></g>
+        <g class="scale-bar" id="scale-bar" aria-hidden="true"></g>
+        <text x="500" y="668" text-anchor="middle" class="scene-instruction" aria-hidden="true">ARRASTE O CORPO PARA MUDAR A POSTURA</text>
+      </svg>
+      <div class="mobile-flows"><span>Sol absorvido<strong id="mobile-solar"></strong></span><span>Convecção<strong id="mobile-conv"></strong></span><span>Infravermelho<strong id="mobile-infra"></strong></span></div><div class="scene-bottom"><div class="temperature-key"><span>Cor do corpo</span><i></i><span>0</span><span>30</span><span>60 °C</span></div><p>Corpo suspenso na teia · Sol a pino</p></div>
+      <p class="scene-note">As partículas representam trocas de calor. O cálculo é de estado estacionário.</p>
+    </section>
+    <aside class="controls">
+      <div class="section-head"><h2>Parâmetros</h2><button id="reset" class="text-button" type="button">Restaurar ↺</button></div>
+      <div class="control-tabs" role="tablist" aria-label="Parâmetros"><button id="environment-tab" role="tab" aria-selected="true" aria-controls="environment-controls" type="button">Ambiente</button><button id="body-tab" role="tab" aria-selected="false" aria-controls="body-controls" tabindex="-1" type="button">Corpo</button></div>
+      <div id="environment-controls" role="tabpanel" aria-labelledby="environment-tab">
+        <div class="presets" aria-label="Cenários de radiação"><button data-radiation="1000" type="button">☼ Sol direto</button><button data-radiation="300" type="button">Proteção parcial</button></div>
+        <div class="slider-label"><label for="radiation">Radiação solar</label><output id="radiation-value" for="radiation"></output></div><input id="radiation" type="range" min="0" max="1500" step="10" value="1000"><div class="range-caps"><span>Sem sol</span><span>Sol intenso</span></div>
+        <div class="slider-label"><label for="wind">Vento</label><output id="wind-value" for="wind"></output></div><input id="wind" type="range" min="0.1" max="5" step="0.1" value="0.1"><div class="range-caps"><span>Brisa leve</span><span>Vento forte</span></div>
+        <div class="slider-label"><label for="air">Temperatura do ar</label><output id="air-value" for="air"></output></div><input id="air" type="range" min="-20" max="50" step="1" value="30">
+      </div>
+      <div id="body-controls" role="tabpanel" aria-labelledby="body-tab" hidden>
+        <div class="paired"><label>Comprimento H <span>mm</span><input id="height" type="number" min="1" max="100" step="0.1" value="8.0"></label><label>Diâmetro D <span>mm</span><input id="diameter" type="number" min="0.1" max="100" step="0.1" value="4.0"></label></div>
+        <div class="slider-label"><label for="roundness">Forma · volume constante</label><output id="roundness-value" for="roundness"></output></div><input id="roundness" type="range" min="0.1" max="1" step="0.01" value="0.5"><div class="range-caps"><span>Alongado</span><span>Compacto</span></div><p class="geometry-note" id="geometry-note"></p>
+      </div>
+      <div class="posture-controls"><div class="slider-label"><label for="angle">Postura do corpo</label><output id="angle-value" for="angle"></output></div><input id="angle" type="range" min="0" max="90" step="1" value="90"><div class="posture-buttons"><button type="button" data-angle="0">↔ Horizontal</button><button type="button" data-angle="90">↕ Vertical</button></div></div>
+      <details id="advanced"><summary>Modelo & propriedades</summary><div class="advanced-content">
+        <label for="mode" class="field-label">Configuração de referência</label><select id="mode"><option value="paper">Artigo · Mitchell (0,52; 0,50)</option><option value="legacy">Shiny legado</option></select><p id="mode-note" class="helper"></p>
+        <label for="hType" class="field-label">Coeficiente de convecção</label><select id="hType"><option>Mitchell</option><option>Gates</option><option>Lactin</option><option>King</option></select>
+        <div class="paired"><label>C<sub>l</sub><input id="cl" type="number" min="0.01" max="2" step="0.01"></label><label>Expoente n<input id="exponent" type="number" min="0.01" max="2" step="0.01"></label></div>
+        <div class="slider-label"><label for="absorption">Absorção solar p</label><output id="absorption-value"></output></div><input id="absorption" type="range" min="0" max="1" step="0.01">
+        <div class="slider-label"><label for="emissivity">Emissividade do corpo εₛ</label><output id="emissivity-value"></output></div><input id="emissivity" type="range" min="0" max="1" step="0.01">
+        <div class="slider-label"><label for="airEmissivity">Emissividade do ar εₐ</label><output id="airEmissivity-value"></output></div><input id="airEmissivity" type="range" min="0" max="1" step="0.01">
+      </div></details>
+      <p id="error" class="error" role="alert" hidden></p>
+      <div class="control-actions"><button id="share" type="button" class="button">Compartilhar cenário ↗</button></div><p id="action-status" class="helper" role="status"></p>
+    </aside>
+  </section>
+  <details id="analysis" class="analysis"><summary><span><strong>Gráficos e balanço de energia</strong></span><span class="expand-mark" aria-hidden="true">＋</span></summary><div class="analysis-content results">
+    <div class="analysis-summary"><div><div class="small-metrics"><div><span>Área ao sol</span><strong id="projected">—</strong></div><div><span>Convecção h</span><strong id="h-value">—</strong></div></div></div><button id="pin" type="button" class="button dark">Fixar comparação ＋</button><p id="pinned-summary" class="pinned-summary" hidden></p></div>
+    <div class="energy"><div class="energy-header"><h3>O balanço de energia</h3><span>Fluxos no equilíbrio · mW</span></div><div class="flux-grid" id="flux-grid"></div><p class="helper">Entrada solar = perdas por convecção + infravermelho.</p></div>
+      <section class="panel chart-panel" aria-labelledby="angle-title"><div class="chart-heading"><div><h2 id="angle-title">Efeito da inclinação</h2></div><div class="segmented" aria-label="Variável do gráfico"><button id="show-temp" aria-pressed="true" type="button">Temperatura</button><button id="show-area" aria-pressed="false" type="button">Área ao sol</button></div></div><p class="chart-description">Apenas a inclinação varia; corpo e ambiente permanecem iguais. Toque no gráfico para escolher uma postura.</p><div id="line-chart" class="chart-host"></div><div class="chart-legend"><span><i class="dot accent"></i>Cenário atual</span><span id="pinned-legend" hidden><i class="dash"></i>Comparação fixada</span><span id="line-readout" class="readout" aria-live="polite"></span></div></section>
+      <section class="panel chart-panel" aria-labelledby="map-title"><div class="chart-heading"><div><h2 id="map-title">Temperatura por forma e inclinação</h2></div><span class="badge subtle">Mesmo volume</span></div><p class="chart-description">Cada célula é um corpo com o volume atual, outra razão D/H e uma inclinação. Toque para aplicar a combinação.</p><div id="heatmap" class="chart-host"></div><div class="map-footer"><span>Mais alongado: D/H → 0 &nbsp; · &nbsp; Mais compacto: D/H → 1</span><div class="color-key"><span id="map-min"></span><i></i><span id="map-max"></span></div></div><p id="map-readout" class="helper" aria-live="polite">Use o mapa ou os controles para explorar.</p></section>
+      <div class="export-row"><span>Dados do cenário e dos gráficos</span><button id="export" class="text-button" type="button">Baixar dados (.csv) ↓</button></div>
+
+  </div></details>
+  <section id="method" class="method"><div><h2>Equações e pressupostos</h2><p>Baseado no modelo térmico de Ferreira-Sousa et al. (2021), <cite>Biology Letters</cite>.</p><a href="https://doi.org/10.6084/m9.figshare.16863137" target="_blank" rel="noreferrer">Ler o suplemento do modelo ↗</a></div><div class="method-details"><div class="equation">W<sub>sol</sub> + W<sub>conv</sub> + W<sub>IV</sub> = 0</div><details open><summary>Equações e unidades</summary><p>A = 2πr² + 2πrH; V = πr²H; L = V<sup>1/3</sup>.</p><p>A<sub>e</sub> = 2rH cos θ + πr² sen θ, com θ medido acima da horizontal (0–90°).</p><p>W<sub>sol</sub> = A<sub>e</sub> I p<br>W<sub>conv</sub> = h A (T<sub>a</sub> − T<sub>s</sub>)<br>W<sub>IV</sub> = A εₐ εₛ σ (T<sub>a</sub>⁴ − T<sub>s</sub>⁴)</p><p>Artigo: h = (0,52 k/L) (vL/ν)<sup>0,50</sup>; k = 0,0256 W/(m·K), ν = 15,2 × 10⁻⁶ m²/s. Temperaturas nas equações em kelvin; σ = 5,67 × 10⁻⁸ W/(m²·K⁴). Vento mínimo de 0,1 m/s no modo Artigo.</p></details><details><summary>Pressupostos</summary><p>Corpo isotérmico, cilíndrico e suspenso, em estado estacionário. Condução, metabolismo e evaporação são desprezados. O infravermelho segue exatamente a forma da equação (3), incluindo εₐ nos dois termos. A sombra parcial usa 300 W/m² de radiação direcional, conforme o suplemento; não é ausência de radiação.</p><p>Os mapas exploram formas teóricas e não representam espécies medidas.</p></details></div></section>
+
+</main><footer><span>SHAPED BY THE SUN ☼</span><p>Ferreira-Sousa, Rocha, Motta & Gawryszewski · 2021</p><a href="#">Voltar ao início ↑</a></footer>
+<script type="module" src="app.js"></script>
+</body></html>
